@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17
+    container_name: ronin_db
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=ronin
+      - POSTGRES_USER=ronin
+      - POSTGRES_DB=ronin_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
