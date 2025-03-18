@@ -1,0 +1,116 @@
+name: Ronin Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - feature/ci-cd-setup
+
+env:
+  FRONTEND_ECR_REPO: ronin-frontend
+
+jobs:
+  setup:
+    name: Setup frontend pipeline environment
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 23
+          cache: "npm"
+          cache-dependency-path: ronin-frontend/package-lock.json
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ronin-frontend/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('ronin-frontend/package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Install Dependencies
+        working-directory: ronin-frontend
+        run: npm install
+
+  sast:
+    name: SonarQube Analysis
+    runs-on: ubuntu-24.04
+    needs: setup
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: ronin-frontend
+          args: >
+            -Dsonar.sources=src
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ secrets.SONAR_ORG }}
+
+  sca:
+    name: Snyk Security Scan
+    runs-on: ubuntu-24.04
+    needs: setup
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Restore npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ronin-frontend/node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('ronin-frontend/package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Install Dependencies
+        working-directory: ronin-frontend
+        run: npm install
+
+      - name: Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=ronin-frontend/package.json
+
+  deliver:
+    name: Build & Deploy to AWS ECR
+    runs-on: ubuntu-24.04
+    needs: [setup, sast, sca]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to AWS ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ env.FRONTEND_ECR_REPO }} ronin-frontend
+
+      - name: Tag and Push to ECR
+        run: |
+          docker tag ${{ env.FRONTEND_ECR_REPO }}:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.FRONTEND_ECR_REPO }}:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.FRONTEND_ECR_REPO }}:latest
