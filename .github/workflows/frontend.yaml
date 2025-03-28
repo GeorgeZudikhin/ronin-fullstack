@@ -3,7 +3,7 @@ name: Ronin Frontend CI/CD
 on:
   push:
     branches:
-      - feature/ci-cd-setup
+      - main
 
 env:
   FRONTEND_ECR_REPO: ronin-frontend

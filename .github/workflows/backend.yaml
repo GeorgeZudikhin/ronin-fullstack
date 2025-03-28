@@ -3,7 +3,7 @@ name: Ronin Backend CI/CD
 on:
   push:
     branches:
-      - feature/ci-cd-setup
+      - main
 
 env:
   BACKEND_ECR_REPO: ronin-backend

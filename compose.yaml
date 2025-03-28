@@ -1,0 +1,35 @@
+services:
+  ronin-db:
+    image: postgres:17
+    container_name: ronin-db
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=ronin
+      - POSTGRES_USER=ronin
+      - POSTGRES_DB=ronin_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  ronin-backend:
+    build:
+      context: ronin-backend
+    container_name: ronin-backend
+    ports:
+      - 8080:8080
+    environment:
+      - "SPRING_PROFILES_ACTIVE=docker"
+    depends_on:
+      - ronin-db
+
+  ronin-frontend:
+    build:
+      context: ronin-frontend
+    container_name: ronin-frontend
+    ports:
+      - 3000:80
+    depends_on:
+      - ronin-backend
+
+volumes:
+  postgres_data:
