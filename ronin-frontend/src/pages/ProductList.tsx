@@ -13,7 +13,7 @@ export default function ProductList() {
     return (
         <div className="min-h-screen p-6">
             <h2 className="text-3xl font-bold mb-6 text-center text-white">
-                Product List
+                Product List Hey Yo
             </h2>
             <div className="flex justify-center mb-5">
                 <Link to="/create">
