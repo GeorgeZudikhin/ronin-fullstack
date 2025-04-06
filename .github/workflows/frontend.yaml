@@ -116,12 +116,26 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [deliver]
     steps:
-      - name: GitOps - Update Image Tag
-        uses: adwert-it/gitops-image-update@v1
+      - name: Setup yq
+        uses: dcarbone/install-yq-action@v1
+
+      - name: Checkout Infra Repo
+        uses: actions/checkout@v4
         with:
-          REPOSITORY_NAME: "GeorgeZudikhin/ronin-infra"
-          ACCESS_TOKEN: ${{ secrets.INFRA_REPO_ACCESS_TOKEN }}
-          BRANCH: "main"
-          VALUES_FILE_PATH: "k8s/charts/ronin-frontend/values.yaml"
-          VALUE_NAME: "image.tag"
-          TAG: "${{ github.sha }}"
+          repository: GeorgeZudikhin/ronin-infra
+          token: ${{ secrets.INFRA_REPO_ACCESS_TOKEN }}
+          path: ronin-infra
+
+      - name: Update image tag in values.yaml
+        run: |
+          cd ronin-infra/k8s/charts/ronin-frontend
+          yq -i ".image.tag = \"$GITHUB_SHA\"" values.yaml
+
+      - name: Commit and push updated tag
+        run: |
+          cd ronin-infra
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "ci: update frontend image tag to $GITHUB_SHA"
+          git push origin main
