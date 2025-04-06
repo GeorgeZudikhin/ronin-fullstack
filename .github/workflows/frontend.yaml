@@ -6,7 +6,8 @@ on:
       - main
 
 env:
-  FRONTEND_ECR_REPO: ronin-frontend
+  FRONTEND_REPO: ronin-frontend
+  DOCKERHUB_USERNAME: yehorzudikhin
 
 jobs:
   setup:
@@ -89,28 +90,38 @@ jobs:
           args: --file=ronin-frontend/package.json
 
   deliver:
-    name: Build & Deploy to AWS ECR
+    name: Build & Deploy to Docker Hub
     runs-on: ubuntu-24.04
     needs: [setup, sast, sca]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Login to AWS ECR
-        uses: aws-actions/amazon-ecr-login@v2
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Docker Image
         run: |
-          docker build -t ${{ env.FRONTEND_ECR_REPO }} ronin-frontend
+          docker buildx build --platform linux/amd64 -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_REPO }}:${{ github.sha }} ronin-frontend
 
-      - name: Tag and Push to ECR
+      - name: Push to Docker Hub
         run: |
-          docker tag ${{ env.FRONTEND_ECR_REPO }}:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.FRONTEND_ECR_REPO }}:latest
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.FRONTEND_ECR_REPO }}:latest
+          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.FRONTEND_REPO }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy to EKS through GitOps trigger
+    runs-on: ubuntu-24.04
+    needs: [deliver]
+    steps:
+      - name: GitOps - Update Image Tag
+        uses: adwert-it/gitops-image-update@v1
+        with:
+          REPOSITORY_NAME: "GeorgeZudikhin/ronin-infra"
+          ACCESS_TOKEN: ${{ secrets.INFRA_REPO_ACCESS_TOKEN }}
+          BRANCH: "main"
+          VALUES_FILE_PATH: "k8s/charts/ronin-frontend/values.yaml"
+          VALUE_NAME: "image.tag"
+          TAG: "${{ github.sha }}"
