@@ -32,7 +32,10 @@ export default function ProductList() {
                             {product.name}
                         </span>
                         <span className="text-gray-300">
-                            Price: ${product.price.toFixed(2)}
+                            Price: $
+                            {product.price != null
+                                ? product.price.toFixed(2)
+                                : "N/A"}
                         </span>
                         <div className="mt-4 flex justify-between">
                             <Link to={`/edit/${product.id}`}>
