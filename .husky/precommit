@@ -1,0 +1,79 @@
+#!/bin/bash
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+STAGED_FILES=$(git diff --cached --name-only)
+HAS_ERRORS=0
+
+#######################
+# Check Frontend
+#######################
+FRONTEND_DIR="ronin-frontend"
+if echo "$STAGED_FILES" | grep -q "^$FRONTEND_DIR/"; then
+  echo "🚀 Changes detected in $FRONTEND_DIR"
+  
+  echo "🔍 Linting frontend..."
+  if cd "$REPO_ROOT/$FRONTEND_DIR" && npm run lint; then
+    echo "✅ Frontend lint passed!"
+  else
+    echo "❌ Frontend lint failed!"
+    HAS_ERRORS=1
+  fi
+
+  echo "🔐 Running secret checks..."
+  if cd "$REPO_ROOT/$FRONTEND_DIR" && git secrets --scan; then
+    echo "✅ Secret checks passed!"
+  else
+    echo "❌ Secrets check failed!"
+    HAS_ERRORS=1
+  fi
+
+  echo "🧪 Running frontend tests..."
+  if cd "$REPO_ROOT/$FRONTEND_DIR" && npx vitest run; then
+    echo "✅ Frontend tests passed!"
+  else
+    echo "❌ Frontend tests failed!"
+    HAS_ERRORS=1
+  fi
+else
+  echo "✅ No frontend changes detected. Skipping frontend checks."
+fi
+
+#######################
+# Check Backend
+#######################
+BACKEND_DIR="ronin-backend"
+if echo "$STAGED_FILES" | grep -q "^$BACKEND_DIR/"; then
+  echo "🚀 Changes detected in $BACKEND_DIR"
+
+  echo "🔍 Running Java checkstyle..."
+  if cd "$REPO_ROOT/$BACKEND_DIR" && mvn checkstyle:check; then
+    echo "✅ Java checkstyle passed!"
+  else
+    echo "❌ Java checkstyle failed!"
+    HAS_ERRORS=1
+  fi
+
+  echo "🧪 Running backend tests..."
+  if cd $BACKEND_DIR && mvn test; then
+    echo "✅ Backend tests passed!"
+  else
+    echo "❌ Backend tests failed!"
+    HAS_ERRORS=1
+  fi
+
+else
+  echo "✅ No backend changes detected. Skipping backend checks."
+fi
+
+#######################
+# Final Gate
+#######################
+if [ "$HAS_ERRORS" -ne 0 ]; then
+  echo "🚫 Commit aborted due to errors above."
+  exit 1
+else
+  echo "✅ All checks passed. Proceeding with commit."
+  exit 0
+fi
