@@ -75,7 +75,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: test --file=ronin-backend/pom.xml --severity-threshold=low --fail-on=all
+          args: --file=ronin-backend/pom.xml
 
   deliver:
     name: Build & Deploy to Docker Hub
