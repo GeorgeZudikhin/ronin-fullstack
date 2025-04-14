@@ -62,6 +62,38 @@ jobs:
           name: ronin-backend-jar
           path: ronin-backend/target/*.jar
 
+  sast:
+    name: SonarQube Analysis
+    runs-on: ubuntu-24.04
+    needs: setup
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: SonarQube Scan
+        working-directory: ronin-backend
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn -B verify -DskipTests \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dspring.profiles.active=sonar
+
   sca:
     name: Snyk Security Scan
     runs-on: ubuntu-24.04
@@ -80,7 +112,7 @@ jobs:
   deliver:
     name: Build & Deploy to Docker Hub
     runs-on: ubuntu-24.04
-    needs: [build, sca]
+    needs: [build, sast, sca]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
