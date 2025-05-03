@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import ronin.backend.entity.Product;
 import ronin.backend.repository.ProductRepository;
@@ -13,6 +15,14 @@ import ronin.backend.repository.ProductRepository;
 @RequiredArgsConstructor
 public class ProductService {
     private final ProductRepository productRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public List<Product> unsafeSearchByName(String name) {
+        String query = "SELECT p FROM Product p WHERE p.name = '" + name + "'";
+        return entityManager.createQuery(query, Product.class).getResultList();
+    }
 
     public List<Product> getAllProducts() {
         return productRepository.findAll();
