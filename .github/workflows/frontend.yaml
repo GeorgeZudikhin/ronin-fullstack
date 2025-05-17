@@ -134,16 +134,21 @@ jobs:
   dast:
     name: DAST with OWASP ZAP
     runs-on: ubuntu-24.04
-    needs: [deliver]
-
+    needs: deliver
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
       - name: Build Backend JAR
         run: |
           cd ronin-backend
-          ./mvnw package -DskipTests
+          mvn clean package -DskipTests
           cd ..
 
       - name: Start Services with Docker Compose
