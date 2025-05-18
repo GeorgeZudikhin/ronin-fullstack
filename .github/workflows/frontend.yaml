@@ -156,12 +156,9 @@ jobs:
           docker compose -f compose.yaml up -d
           until curl -s http://localhost:3000 > /dev/null; do echo "Waiting for app..."; sleep 5; done
 
-      - name: Run OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.10.0
-        with:
-          target: "http://localhost:3000"
-          fail_action: false
-          allow_issue_writing: false
+      - name: Run OWASP ZAP
+        run: |
+          docker run --network=host ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://localhost:3000 -o -config api.disablekey=true
 
       - name: Stop Docker Compose
         if: always()
