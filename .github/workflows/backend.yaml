@@ -160,6 +160,7 @@ jobs:
   dast:
     name: DAST with OWASP ZAP
     runs-on: ubuntu-24.04
+    permissions: write-all
     needs: deliver
     steps:
       - name: Checkout Code
@@ -194,7 +195,7 @@ jobs:
   deploy:
     name: Deploy to EKS through GitOps trigger
     runs-on: ubuntu-24.04
-    needs: [deliver]
+    needs: [dast]
     steps:
       - name: Setup yq
         uses: dcarbone/install-yq-action@v1
