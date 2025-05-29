@@ -157,6 +157,40 @@ jobs:
         run: |
           docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.BACKEND_REPO }}:${{ github.sha }}
 
+  dast:
+    name: DAST with OWASP ZAP
+    runs-on: ubuntu-24.04
+    needs: deliver
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Build Backend JAR
+        run: |
+          cd ronin-backend
+          mvn clean package -DskipTests
+          cd ..
+
+      - name: Start Services with Docker Compose
+        run: |
+          docker compose -f compose.yaml up -d
+          until curl -s http://localhost:3000 > /dev/null; do echo "Waiting for app..."; sleep 5; done
+
+      - name: Run OWASP ZAP Full Scan
+        uses: zaproxy/action-full-scan@v0.12.0
+        with:
+          target: "http://localhost:3000"
+
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose -f compose.yaml down
+
   deploy:
     name: Deploy to EKS through GitOps trigger
     runs-on: ubuntu-24.04
